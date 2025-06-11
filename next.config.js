@@ -7,6 +7,10 @@ const nextConfig = {
     domains: ['localhost'],
     unoptimized: true,
   },
+  // Netlify 静态导出配置
+  output: 'export',
+  trailingSlash: true,
+  distDir: '.next',
   async headers() {
     return [
       {
