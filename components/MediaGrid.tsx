@@ -12,6 +12,7 @@ interface MediaGridProps {
   onFileSelect: (file: MediaFile) => void
   onFileDelete: (fileId: string) => void
   selectedFileId?: string
+  autoPreview?: boolean // 新增：是否启用鼠标悬停自动预览
 }
 
 const ITEMS_PER_PAGE = 20
@@ -20,9 +21,11 @@ export default function MediaGrid({
   files, 
   onFileSelect, 
   onFileDelete, 
-  selectedFileId 
+  selectedFileId,
+  autoPreview = true // 默认启用自动预览
 }: MediaGridProps) {
   const [currentPage, setCurrentPage] = useState(1)
+  const [hoverTimeoutId, setHoverTimeoutId] = useState<NodeJS.Timeout | null>(null)
 
   // 当文件列表变化时重置到第一页
   useEffect(() => {
@@ -41,12 +44,36 @@ export default function MediaGrid({
     // 滚动到顶部
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  // 处理鼠标悬停自动预览
+  const handleMouseEnter = (file: MediaFile) => {
+    if (!autoPreview) return
+    
+    // 清除之前的延迟
+    if (hoverTimeoutId) {
+      clearTimeout(hoverTimeoutId)
+    }
+    
+    // 设置延迟500ms后自动选择文件
+    const timeoutId = setTimeout(() => {
+      onFileSelect(file)
+    }, 500)
+    
+    setHoverTimeoutId(timeoutId)
+  }
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutId) {
+      clearTimeout(hoverTimeoutId)
+      setHoverTimeoutId(null)
+    }
+  }
   if (files.length === 0) {
     return (
       <div className="text-center py-12">
         <PhotoIcon className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-        <p className="text-gray-500 text-lg">还没有上传任何文件</p>
-        <p className="text-gray-400 text-sm">开始上传一些图片、视频或 Lottie 动画吧！</p>
+        <p className="text-gray-600 text-lg">还没有上传任何文件</p>
+        <p className="text-gray-500 text-sm">开始上传一些图片、视频或 Lottie 动画吧！</p>
       </div>
     )
   }
@@ -96,6 +123,8 @@ export default function MediaGrid({
               ${selectedFileId === file.id ? 'ring-2 ring-primary-500' : ''}
             `}
             onClick={() => onFileSelect(file)}
+            onMouseEnter={() => handleMouseEnter(file)}
+            onMouseLeave={handleMouseLeave}
           >
             {/* 文件预览 */}
             <div className="aspect-square bg-gray-100 relative">
@@ -135,7 +164,7 @@ export default function MediaGrid({
               <h3 className="font-medium text-gray-800 truncate mb-1">
                 {file.name}
               </h3>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-600">
                 {formatFileSize(file.size)} • {formatDate(file.uploadDate)}
               </p>
             </div>

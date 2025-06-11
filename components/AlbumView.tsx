@@ -176,7 +176,7 @@ export default function AlbumView({
           )}
           
           {availableFiles.length === 0 ? (
-            <p className="text-gray-500 text-sm">
+            <p className="text-gray-600 text-sm">
               {searchTerm ? '没有找到匹配的文件' : '没有可添加的文件'}
             </p>
           ) : (
@@ -245,8 +245,8 @@ export default function AlbumView({
       {files.length === 0 ? (
         <div className="text-center py-12">
           <PhotoIcon className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <p className="text-gray-500 text-lg">图集为空</p>
-          <p className="text-gray-400 text-sm">点击上方按钮添加文件到这个图集</p>
+          <p className="text-gray-600 text-lg">图集为空</p>
+          <p className="text-gray-500 text-sm">点击上方按钮添加文件到这个图集</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -324,7 +324,7 @@ export default function AlbumView({
                 <h3 className="font-medium text-gray-800 truncate mb-1">
                   {file.name}
                 </h3>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-600">
                   {file.type.toUpperCase()}
                 </p>
               </div>
