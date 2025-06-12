@@ -19,6 +19,7 @@ interface AlbumManagerProps {
   onAlbumsChange: () => void
   onAlbumSelect: (album: Album | null) => void
   selectedAlbum: Album | null
+  canManage?: boolean // 新增：是否有管理权限
 }
 
 interface AlbumFormData {
@@ -31,7 +32,8 @@ export default function AlbumManager({
   files, 
   onAlbumsChange, 
   onAlbumSelect,
-  selectedAlbum 
+  selectedAlbum,
+  canManage = false
 }: AlbumManagerProps) {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingAlbum, setEditingAlbum] = useState<Album | null>(null)
@@ -99,13 +101,15 @@ export default function AlbumManager({
         <h2 className="text-xl font-semibold text-gray-800">
           图集管理 ({albums.length})
         </h2>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="flex items-center space-x-2 px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm"
-        >
-          <FolderPlusIcon className="h-4 w-4" />
-          <span>新建图集</span>
-        </button>
+        {canManage && (
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="flex items-center space-x-2 px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm"
+          >
+            <FolderPlusIcon className="h-4 w-4" />
+            <span>新建图集</span>
+          </button>
+        )}
       </div>
 
       {/* 创建/编辑表单 */}
@@ -211,27 +215,31 @@ export default function AlbumManager({
                     {fileCount} 个文件
                   </div>
 
-                  {/* 操作按钮 */}
-                  <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleEditAlbum(album)
-                      }}
-                      className="p-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                    >
-                      <PencilIcon className="h-3 w-3" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeleteAlbum(album)
-                      }}
-                      className="p-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-                    >
-                      <TrashIcon className="h-3 w-3" />
-                    </button>
-                  </div>
+                  {/* 操作按钮 - 只在有权限时显示 */}
+                  {canManage && (
+                    <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleEditAlbum(album)
+                        }}
+                        className="p-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                        title="编辑图集"
+                      >
+                        <PencilIcon className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteAlbum(album)
+                        }}
+                        className="p-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                        title="删除图集"
+                      >
+                        <TrashIcon className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* 图集信息 */}

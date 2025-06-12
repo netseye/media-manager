@@ -8,9 +8,10 @@ import { FileStorage } from '@/lib/storage'
 interface StorageManagerProps {
   onClearAll: () => void
   refreshTrigger?: number // 添加一个触发刷新的prop
+  canDelete?: boolean // 新增：是否有删除权限
 }
 
-export default function StorageManager({ onClearAll, refreshTrigger }: StorageManagerProps) {
+export default function StorageManager({ onClearAll, refreshTrigger, canDelete = false }: StorageManagerProps) {
   const [storageSize, setStorageSize] = useState('0 B')
   const [fileCount, setFileCount] = useState(0)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -55,10 +56,11 @@ export default function StorageManager({ onClearAll, refreshTrigger }: StorageMa
             </div>
           </div>
           
-          {fileCount > 0 && (
+          {fileCount > 0 && canDelete && (
             <button
               onClick={() => setShowConfirm(true)}
               className="flex items-center space-x-1 px-3 py-1 bg-red-100 text-red-600 rounded-md hover:bg-red-200 transition-colors text-sm"
+              title="清空所有文件（仅管理员）"
             >
               <TrashIcon className="h-4 w-4" />
               <span>清空所有</span>

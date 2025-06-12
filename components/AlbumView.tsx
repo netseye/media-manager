@@ -22,6 +22,7 @@ interface AlbumViewProps {
   onAlbumsChange: () => void
   selectedFileId?: string
   onToast?: (message: string, type?: 'success' | 'error' | 'info') => void
+  canManage?: boolean // 新增：是否有管理权限
 }
 
 export default function AlbumView({
@@ -32,7 +33,8 @@ export default function AlbumView({
   onFileSelect,
   onAlbumsChange,
   selectedFileId,
-  onToast
+  onToast,
+  canManage = false
 }: AlbumViewProps) {
   const [showAddFiles, setShowAddFiles] = useState(false)
   const [isAddingFile, setIsAddingFile] = useState<string | null>(null)
@@ -133,13 +135,15 @@ export default function AlbumView({
           </div>
         </div>
         
-        <button
-          onClick={() => setShowAddFiles(!showAddFiles)}
-          className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          <PlusIcon className="h-4 w-4" />
-          <span>添加文件</span>
-        </button>
+        {canManage && (
+          <button
+            onClick={() => setShowAddFiles(!showAddFiles)}
+            className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            <PlusIcon className="h-4 w-4" />
+            <span>添加文件</span>
+          </button>
+        )}
       </div>
 
       {/* 添加文件面板 */}
@@ -287,36 +291,38 @@ export default function AlbumView({
                   </div>
                 )}
 
-                {/* 操作按钮 */}
-                <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {album.coverImage !== file.id && (
+                {/* 操作按钮 - 只在有权限时显示 */}
+                {canManage && (
+                  <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {album.coverImage !== file.id && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleSetCover(file.id)
+                        }}
+                        className="p-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors"
+                        title="设为封面"
+                      >
+                        <StarIcon className="h-3 w-3" />
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
-                        handleSetCover(file.id)
+                        handleRemoveFile(file.id)
                       }}
-                      className="p-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors"
-                      title="设为封面"
+                      disabled={isRemovingFile === file.id}
+                      className="p-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50"
+                      title="从图集移除"
                     >
-                      <StarIcon className="h-3 w-3" />
+                      {isRemovingFile === file.id ? (
+                        <div className="h-3 w-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <MinusIcon className="h-3 w-3" />
+                      )}
                     </button>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleRemoveFile(file.id)
-                    }}
-                    disabled={isRemovingFile === file.id}
-                    className="p-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50"
-                    title="从图集移除"
-                  >
-                    {isRemovingFile === file.id ? (
-                      <div className="h-3 w-3 border border-white border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <MinusIcon className="h-3 w-3" />
-                    )}
-                  </button>
-                </div>
+                  </div>
+                )}
               </div>
 
               {/* 文件信息 */}

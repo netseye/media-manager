@@ -13,6 +13,7 @@ interface MediaGridProps {
   onFileDelete: (fileId: string) => void
   selectedFileId?: string
   autoPreview?: boolean // 新增：是否启用鼠标悬停自动预览
+  canDelete?: boolean // 新增：是否有删除权限
 }
 
 const ITEMS_PER_PAGE = 20
@@ -22,7 +23,8 @@ export default function MediaGrid({
   onFileSelect, 
   onFileDelete, 
   selectedFileId,
-  autoPreview = true // 默认启用自动预览
+  autoPreview = true, // 默认启用自动预览
+  canDelete = false // 默认没有删除权限
 }: MediaGridProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [hoverTimeoutId, setHoverTimeoutId] = useState<NodeJS.Timeout | null>(null)
@@ -145,18 +147,19 @@ export default function MediaGrid({
               {/* 文件类型标签 */}
               <div className={`absolute top-2 left-2 px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(file.type)}`}>
                 {file.type.toUpperCase()}
-              </div>
-
-              {/* 删除按钮 */}
+              </div>            {/* 删除按钮 - 只在有权限时显示 */}
+            {canDelete && (
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   onFileDelete(file.id)
                 }}
                 className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-600"
+                title="删除文件"
               >
                 <TrashIcon className="h-4 w-4" />
               </button>
+            )}
             </div>
 
             {/* 文件信息 */}

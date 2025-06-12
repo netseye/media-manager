@@ -8,9 +8,13 @@ import StorageManager from '@/components/StorageManager'
 import DemoModal from '@/components/DemoModal'
 import AlbumManager from '@/components/AlbumManager'
 import AlbumView from '@/components/AlbumView'
+import LoginModal from '@/components/LoginModal'
+import UserMenu from '@/components/UserMenu'
+import PermissionPrompt from '@/components/PermissionPrompt'
 import { ToastManager } from '@/components/Toast'
 import { FileStorage } from '@/lib/storage'
 import { Album, AlbumStorage } from '@/lib/albums'
+import { AuthService, User } from '@/lib/auth'
 import { useEffect, useState } from 'react'
 
 export interface MediaFile {
@@ -31,7 +35,10 @@ export default function Home() {
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null)
   const [currentView, setCurrentView] = useState<'files' | 'albums' | 'album-detail'>('files')
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type?: 'success' | 'error' | 'info' }>>([])
-  const [storageRefreshTrigger, setStorageRefreshTrigger] = useState(0) // 添加存储刷新触发器
+  const [storageRefreshTrigger, setStorageRefreshTrigger] = useState(0)
+  // 身份验证状态
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [showLoginModal, setShowLoginModal] = useState(false)
 
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -43,6 +50,12 @@ export default function Home() {
   }
 
   useEffect(() => {
+    // 检查登录状态
+    const authState = AuthService.getCurrentAuth()
+    if (authState.isAuthenticated && authState.user) {
+      setCurrentUser(authState.user)
+    }
+
     // 从 localStorage 加载已保存的文件
     const storedFiles = FileStorage.loadFiles()
     const mediaFiles = FileStorage.convertToMediaFiles(storedFiles)
@@ -58,6 +71,13 @@ export default function Home() {
   }, [])
 
   const handleFileUpload = async (newFiles: File[]) => {
+    // 检查上传权限
+    if (!AuthService.canUpload(currentUser)) {
+      addToast('您没有权限上传文件，请先登录', 'error')
+      setShowLoginModal(true)
+      return
+    }
+
     const processedFiles: MediaFile[] = []
     
     for (const file of newFiles) {
@@ -68,20 +88,31 @@ export default function Home() {
         processedFiles.push(mediaFile)
       } catch (error) {
         console.error('Failed to process file:', file.name, error)
+        addToast(`上传文件 ${file.name} 失败`, 'error')
       }
     }
     
-    setFiles(prev => [...processedFiles, ...prev])
+    if (processedFiles.length > 0) {
+      setFiles(prev => [...processedFiles, ...prev])
+      addToast(`成功上传 ${processedFiles.length} 个文件`, 'success')
+    }
     // 触发存储信息更新
     setStorageRefreshTrigger(prev => prev + 1)
   }
 
   const handleFileDelete = (fileId: string) => {
+    // 检查删除权限
+    if (!AuthService.canDelete(currentUser)) {
+      addToast('您没有权限删除文件', 'error')
+      return
+    }
+
     FileStorage.deleteFile(fileId)
     setFiles(prev => prev.filter(file => file.id !== fileId))
     if (selectedFile?.id === fileId) {
       setSelectedFile(null)
     }
+    addToast('文件已删除', 'success')
     // 触发存储信息更新
     setStorageRefreshTrigger(prev => prev + 1)
   }
@@ -91,10 +122,33 @@ export default function Home() {
   }
 
   const handleClearAll = () => {
+    // 检查删除权限
+    if (!AuthService.canDelete(currentUser)) {
+      addToast('您没有权限清空文件', 'error')
+      return
+    }
+
     setFiles([])
     setSelectedFile(null)
+    addToast('所有文件已清空', 'success')
     // 触发存储信息更新
     setStorageRefreshTrigger(prev => prev + 1)
+  }
+
+  // 身份验证处理函数
+  const handleLogin = (user: User) => {
+    setCurrentUser(user)
+    addToast(`欢迎回来，${user.username}！`, 'success')
+  }
+
+  const handleLogout = () => {
+    setCurrentUser(null)
+    setSelectedFile(null)
+    addToast('已退出登录', 'info')
+  }
+
+  const handleShowLogin = () => {
+    setShowLoginModal(true)
   }
 
   const handleAlbumsChange = () => {
@@ -143,46 +197,64 @@ export default function Home() {
       <motion.header 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-8"
+        className="mb-8"
       >
-        <h1 className="text-4xl font-bold text-gray-800 mb-2">
-          媒体文件管理器
-        </h1>
-        <p className="text-gray-600 mb-4">
-          上传、管理和预览你的图片、SVG、Lottie动画和视频文件
-        </p>
-        <div className="flex items-center justify-center space-x-4">
-          <button
-            onClick={() => setShowDemo(true)}
-            className="inline-flex items-center px-4 py-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-colors text-sm"
-          >
-            <InformationCircleIcon className="h-4 w-4 mr-2" />
-            查看功能介绍
-          </button>
-          
-          {/* 视图切换按钮 */}
-          <div className="flex items-center bg-gray-100 rounded-lg p-1">
+        {/* 顶部用户菜单 */}
+        <div className="flex justify-end mb-4">
+          <UserMenu 
+            user={currentUser}
+            onLogin={handleShowLogin}
+            onLogout={handleLogout}
+          />
+        </div>
+
+        {/* 标题和描述 */}
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">
+            媒体文件管理器
+          </h1>
+          <p className="text-gray-600 mb-4">
+            上传、管理和预览你的图片、SVG、Lottie动画和视频文件
+            {!currentUser && (
+              <span className="block text-sm text-amber-600 mt-1">
+                ⚠️ 请登录以使用完整功能（上传、删除等）
+              </span>
+            )}
+          </p>
+          <div className="flex items-center justify-center space-x-4">
             <button
-              onClick={() => setCurrentView('files')}
-              className={`px-3 py-1 rounded-md text-sm transition-colors ${
-                currentView === 'files' 
-                  ? 'bg-white text-gray-800 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
+              onClick={() => setShowDemo(true)}
+              className="inline-flex items-center px-4 py-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-colors text-sm"
             >
-              文件管理
+              <InformationCircleIcon className="h-4 w-4 mr-2" />
+              查看功能介绍
             </button>
-            <button
-              onClick={() => setCurrentView('albums')}
-              className={`px-3 py-1 rounded-md text-sm transition-colors flex items-center space-x-1 ${
-                currentView === 'albums' || currentView === 'album-detail'
-                  ? 'bg-white text-gray-800 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              <FolderIcon className="h-4 w-4" />
-              <span>图集管理</span>
-            </button>
+            
+            {/* 视图切换按钮 */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setCurrentView('files')}
+                className={`px-3 py-1 rounded-md text-sm transition-colors ${
+                  currentView === 'files' 
+                    ? 'bg-white text-gray-800 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                文件管理
+              </button>
+              <button
+                onClick={() => setCurrentView('albums')}
+                className={`px-3 py-1 rounded-md text-sm transition-colors flex items-center space-x-1 ${
+                  currentView === 'albums' || currentView === 'album-detail'
+                    ? 'bg-white text-gray-800 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+                disabled={!AuthService.canManageAlbums(currentUser)}
+              >
+                <FolderIcon className="h-4 w-4" />
+                <span>图集管理</span>
+              </button>
+            </div>
           </div>
         </div>
       </motion.header>
@@ -200,6 +272,7 @@ export default function Home() {
                 <StorageManager 
                   onClearAll={handleClearAll} 
                   refreshTrigger={storageRefreshTrigger}
+                  canDelete={AuthService.canDelete(currentUser)}
                 />
               </motion.div>
 
@@ -208,7 +281,11 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <FileUpload onUpload={handleFileUpload} />
+                <FileUpload 
+                  onUpload={handleFileUpload} 
+                  canUpload={AuthService.canUpload(currentUser)}
+                  onRequestLogin={handleShowLogin}
+                />
               </motion.div>
               
               <motion.div
@@ -222,6 +299,7 @@ export default function Home() {
                   onFileSelect={handleFileSelect}
                   onFileDelete={handleFileDelete}
                   selectedFileId={selectedFile?.id}
+                  canDelete={AuthService.canDelete(currentUser)}
                 />
               </motion.div>
             </>
@@ -234,13 +312,23 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
             >
-              <AlbumManager
-                albums={albums}
-                files={files}
-                onAlbumsChange={handleAlbumsChange}
-                onAlbumSelect={handleAlbumSelect}
-                selectedAlbum={selectedAlbum}
-              />
+              {!AuthService.canManageAlbums(currentUser) ? (
+                <PermissionPrompt
+                  title="需要登录以管理图集"
+                  description="图集管理功能需要用户权限。登录后您可以创建、编辑和删除图集，以及添加文件到图集中。"
+                  icon="shield"
+                  onLogin={handleShowLogin}
+                />
+              ) : (
+                <AlbumManager
+                  albums={albums}
+                  files={files}
+                  onAlbumsChange={handleAlbumsChange}
+                  onAlbumSelect={handleAlbumSelect}
+                  selectedAlbum={selectedAlbum}
+                  canManage={AuthService.canManageAlbums(currentUser)}
+                />
+              )}
             </motion.div>
           )}
 
@@ -260,6 +348,7 @@ export default function Home() {
                 onAlbumsChange={handleAlbumsChange}
                 selectedFileId={selectedFile?.id}
                 onToast={addToast}
+                canManage={AuthService.canManageAlbums(currentUser)}
               />
             </motion.div>
           )}
@@ -280,6 +369,11 @@ export default function Home() {
       </div>
 
       <DemoModal isOpen={showDemo} onClose={() => setShowDemo(false)} />
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)}
+        onSuccess={handleLogin}
+      />
       <ToastManager toasts={toasts} onRemove={removeToast} />
     </div>
   )
